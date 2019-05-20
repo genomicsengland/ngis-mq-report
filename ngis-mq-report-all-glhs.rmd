@@ -13,16 +13,16 @@ The below are metrics based on various data quality tests done.
 
 The below table shows the number of test failures by GLH and test
 
-```{r, test fails per GLH}
+```{r, test fails per GLH, echo = FALSE}
 
-kable(table(tr$test_id[!tr$test_result], tr$ordering_entity_uid[!tr$test_result]))
+kable(table(tr$test_id[!tr$test_result], tr$glh[!tr$test_result]))
 
 ```
 
 
 ## Test Descriptions
 
-```{r, tests table}
+```{r, tests table, echo = FALSE}
 
 a <- read_file('tests-doc.md')
 

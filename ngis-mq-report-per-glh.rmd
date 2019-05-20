@@ -5,25 +5,35 @@ output:
    md_document
 ---
 
-# Introduction
+# NGIS Report - `r glh`
 
-The below are metrics based on various data quality tests done.
+The following report gives both metrics and failure reports for GMC referrals received from `r glh`. The data quality tests applied to each referral and their matching participants and samples, are detailed at the bottom of this document.
 
-## Test failures by GLH
+## Test failures metrics
 
-The below table shows the number of test failures by GLH and test
+The below table shows the number of test failures by GLH and test.
 
-```{r, test fails per GLH}
+```{r, test fail counts per GLH, echo = FALSE}
 
-kable(table(tr$test_id[!tr$test_result & tr$ordering_entity_uid %in% glh],
-			tr$ordering_entity_uid[!tr$test_result & tr$ordering_entity_uid %in% glh]))
+kable(table(tr$test_id[!tr$test_result & tr$glh %in% glh],
+			tr$glh[!tr$test_result & tr$glh %in% glh]))
+
+```
+
+## Test failure report
+
+The following table provides details of all GMS data quality test failures.
+
+```{r, test fails report per GLH, echo = FALSE}
+
+kable(tr[!tr$test_result & tr$glh %in% glh,])
 
 ```
 
 
 ## Test Descriptions
 
-```{r, tests table}
+```{r, tests table, echo = FALSE}
 
 a <- read_file('tests-doc.md')
 
