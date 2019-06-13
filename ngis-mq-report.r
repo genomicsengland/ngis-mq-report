@@ -5,7 +5,6 @@ options(stringsAsFactors = FALSE,
 library(wrangleR)
 library(RPostgreSQL)
 library(openxlsx)
-library(rmarkdown)
 
 #-- connect to results db
 drv <- dbDriver("PostgreSQL")
