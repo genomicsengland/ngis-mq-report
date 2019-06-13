@@ -42,7 +42,7 @@ rules <- dbGetQuery(res_db_con, "
 	from ngis_mq_results.test_type
 	where glh_report in ('Y')
 	order by glh_test_id
-	")
+	;")
 
 #-- wrapper function to create a worksheet with particular formatting
 write_xlsx <- function(d, fn){
