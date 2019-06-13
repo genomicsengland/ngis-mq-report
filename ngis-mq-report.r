@@ -1,4 +1,6 @@
 #-- script to generate ngis mq reports per GLH
+#-- requires an R version that isn't default on Index (see README.md)
+#-- run with /usr/local/R/3.5.3/bin/Rscript ngis-mq-report.r 
 rm(list = objects())
 options(stringsAsFactors = FALSE,
 	scipen = 200)
