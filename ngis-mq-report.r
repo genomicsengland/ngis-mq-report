@@ -40,6 +40,7 @@ select organisation_id as organisation
 	,includes_csv_data as "Includes Data from CSV"
 	,test_de_datetime as "Failed Rule Datetime"
 	,referral_link as "Referral Link"
+	,last_updated_by as "Last Updated By"
 from ngis_mq_results.vw_dq_report_table
 where test_result = false and glh_report = \'Y\'
 ;')
