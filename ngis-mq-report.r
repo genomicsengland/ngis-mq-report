@@ -1,4 +1,5 @@
 #-- TODO: test this as can't really test as insufficient data in it
+#-- TODO: particularly bits around removal of cancelled rule people
 #-- script to generate ngis mq reports per GLH
 #-- requires an R version that isn't default on Index (see README.md)
 #-- run with /usr/local/R/3.5.3/bin/Rscript ngis-mq-report.r 
@@ -72,6 +73,11 @@ ddf_d <- merge(ddf_d, ddf_rules, by = "Test ID", all.y = T)
 
 #-- rbind ddf rule failures onto NGIS MQ rule failures
 d <- rbind(d, ddf_d)
+
+#-- for those participants that are failing the 'referral is cancelled' rule, want to report that result but not any other rule results
+cancelled_rule <- "ngis_rule_000"
+cancelled_referral_ids <- d$`Referral ID`[d$`Test ID` == cancelled_rule] 
+d <- d[(!d$`Referral ID` %in% cancelled_referral_ids) | (d$`Referral ID` %in% cancelled_referral_ids & d$`Test ID` == cancelled_rule), ]
 
 #-- make table of rule failures per organisation and rule
 d_t <- setNames(as.data.frame(table(d$`Test ID`, d$organisation)),
