@@ -80,6 +80,10 @@ cancelled_rule <- "ngis_rule_000"
 cancelled_referral_ids <- d$`Referral ID`[d$`Test ID` == cancelled_rule] 
 d <- d[(!d$`Referral ID` %in% cancelled_referral_ids) | (d$`Referral ID` %in% cancelled_referral_ids & d$`Test ID` == cancelled_rule), ]
 
+#-- replace NAs in organisation with 'unknown'
+#-- needed early on as not getting a lot of organisations coming through
+d$organisation[is.na(d$organisation)] <- 'unknown'
+
 #-- make table of rule failures per organisation and rule
 d_t <- setNames(as.data.frame(table(d$`Test ID`, d$organisation)),
 				 c("Test ID", "organisation", "Number of Failures")
