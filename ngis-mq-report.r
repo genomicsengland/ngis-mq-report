@@ -14,6 +14,12 @@ library(slackr)
 #-- get profile data
 p <- getprofile(c("indx_con", "cdr_auto", "slack_api_token"))
 
+#-- set up Slack connection
+slack_channel = "testathon-is-on"
+slackr_setup(channel = slack_channel, 
+             incoming_webhook_url="https://hooks.slack.com/services/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",
+             api_token = p[['slack_api_token']])
+
 #-- Run the DQ rules
 dq_commands <- list(
 	'tests' = 'python ngis_mq.py RunDQTests',
@@ -21,12 +27,11 @@ dq_commands <- list(
 	'refresh_ID' = 'python ngis_mq.py RefreshIDTable',
 	'usertab' = 'python ngis_mq.py writeUserTab'
 )
-dq_output <- lapply(dq_commands, function(x) system(paste('cd ../ngis-mq && source venv/bin/activate &&', x)))
-
-#-- set up Slack connection
-slackr_setup(channel = "simon-t", 
-             incoming_webhook_url="https://hooks.slack.com/services/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",
-             api_token = p[['slack_api_token']])
+dq_output <- list()
+for(i in names(dq_commands)){
+	system(paste('cd ../ngis-mq && source venv/bin/activate &&', dq_commands[[i]]))
+	dq_output[[i]] <- readLines('../ngis-mq/log/last-run.log')
+}
 
 #-- connect to results db
 drv <- dbDriver("PostgreSQL")
@@ -36,61 +41,40 @@ res_db_con <- dbConnect(drv,
              port     = p$indx_con$port,
              user     = p$indx_con$user,
              password = p$indx_con$password)
-cdr_db_con <- dbConnect(drv,
-             dbname = "central_data_repo",
-             host     = p$cdr_auto$host,
-             port     = p$cdr_auto$port,
-             user     = p$cdr_auto$user,
-             password = p$cdr_auto$password)
 
 #-- get latest data from results db (the DQ report view)
 d <- dbGetQuery(res_db_con, '
 select organisation_id as organisation
+	,referral_link as "Test order link"
 	,referral_id as "Referral ID"
-	,nhs_chi_number as "NHS/CHI Number"
-	,patient_date_of_birth as "Date of Birth"
-	,upper(person_first_name) as "Patient First Name"
-	,upper(person_family_name) as "Patient Surname"
-	,upper(patient_administrative_gender) as "Gender"
-	,glh_test_id as "Test ID"
-	,glh_description as "Test Description"
-	,resolution_guidance as "Resolution Guidance"
-	,includes_csv_data as "Includes Data from CSV"
-	,test_de_datetime as "Failed Rule Datetime"
-	,referral_link as "Referral Link"
-	,last_updated_by as "Last Updated By"
-	,last_updated_on as "Last Updated On"
+	,nhs_chi_number as "Patient\'s NHS Number"
+	,patient_date_of_birth as "Patient\'s date of birth"
+	,upper(person_first_name) as "Patient\'s first name"
+	,upper(person_family_name) as "Patient\'s surname"
+	,upper(patient_administrative_gender) as "Patient\'s gender"
+	,glh_test_id as "Failed rule ID"
+	,glh_description as "Failed rule description"
+	,resolution_guidance as "Resolution guidance"
+	,includes_csv_data as "Includes data from csv?"
+	,delays_test_order as "Will block test order?"
+	,test_de_datetime as "Failed rule datetime"
+	,last_updated_by as "Test order last amended by"
+	,last_updated_on as "Test order last amended"
 from ngis_mq_results.vw_dq_report_table
 where test_result = false and glh_report = \'Y\'
 ;')
 
 #-- get rule descriptions for both NGIS and DDF rule failures
 rules <- dbGetQuery(res_db_con, '
-	select glh_test_id as "Test ID"
-		,glh_description as "Test Description"
-		,resolution_guidance as "Resolution Guidance"
-		,includes_csv_data as "Includes Data from CSV"
+	select glh_test_id as "Rule ID"
+		,glh_description as "Rule description"
+		,resolution_guidance as "Resolution guidance"
+		,includes_csv_data as "Includes data from csv"
+		,delays_test_order as "Delays the test order"
 	from ngis_mq_results.test_type
 	where glh_report in (\'Y\')
 	order by glh_test_id
 	;')
-ddf_rules <- read.csv("ddf-rule-descriptions.csv", check.names = F)
-rules <- rbind(rules, ddf_rules)
-
-#-- get DDF rule failures
-ddf_d <- dbGetQuery(cdr_db_con, paste(readLines("ddf-rer-results.sql"), collapse = " "))
-
-#-- get participant details to merge into ddf rule failures
-p_details <- dbGetQuery(res_db_con, paste(readLines("proband-details.sql"), collapse = " "))
-
-#-- merge the two together
-ddf_d <- merge(ddf_d, p_details, by = "Referral ID", all.x = T)
-
-#-- inner merge of the ddf rules data so now only getting rule failures that should be reported to GLH
-ddf_d <- merge(ddf_d, ddf_rules, by = "Test ID", all.y = T)
-
-#-- rbind ddf rule failures onto NGIS MQ rule failures
-d <- rbind(d, ddf_d)
 
 #-- for those participants that are failing the 'referral is cancelled' rule, want to report that result but not any other rule results
 cancelled_rule <- "ngis_rule_000"
@@ -102,10 +86,10 @@ d <- d[(!d$`Referral ID` %in% cancelled_referral_ids) | (d$`Referral ID` %in% ca
 d$organisation[is.na(d$organisation)] <- 'unknown'
 
 #-- make table of rule failures per organisation and rule
-d_t <- setNames(as.data.frame(table(d$`Test ID`, d$organisation)),
-				 c("Test ID", "organisation", "Number of Failures")
+d_t <- setNames(as.data.frame(table(d$`Rule ID`, d$organisation)),
+				 c("Rule ID", "organisation", "Number of Failures")
 				 )
-d_t <- merge(d_t, rules, by = "Test ID", all.x = T)
+d_t <- merge(d_t, rules, by = "Rule ID", all.x = T)
 
 #-- wrapper function to create a worksheet with particular formatting
 write_xlsx <- function(t, d, fn){
@@ -119,7 +103,7 @@ write_xlsx <- function(t, d, fn){
 	addWorksheet(wb, sheetName='Rule Results')
 	addWorksheet(wb, sheetName='All Rules')
 	# set the col widths (either manual or auto)
-	setColWidths(wb, 1, 1:ncol(t), c(15, 15, 70, 70, 20))
+	setColWidths(wb, 1, 1:ncol(t), c(15, 15, 70, 70, 20, 20))
 	setColWidths(wb, 2, 1:ncol(d), 'auto')
 	setColWidths(wb, 3, 1:ncol(rules), c(15, 70, 70, 20))
 	# freeze the top row of the spreadsheet
@@ -131,7 +115,7 @@ write_xlsx <- function(t, d, fn){
 	writeData(wb, 'Rule Results', d, headerStyle = hs1)
 	writeData(wb, 'All Rules', rules, headerStyle = hs1)
 	# add the cell styles to just 1st and 3rd sheets (where we want wrapping)
-	addStyle(wb, 1, style = cs1, rows = 2:(nrow(rules) + 1), cols = 1:ncol(rules), gridExpand = TRUE)
+	addStyle(wb, 1, style = cs1, rows = 2:(nrow(t) + 1), cols = 1:ncol(t), gridExpand = TRUE)
 	addStyle(wb, 3, style = cs1, rows = 2:(nrow(rules) + 1), cols = 1:ncol(rules), gridExpand = TRUE)
 	# make the hyperlinks and overwrite the relevant data
 	links  <-  d$`Referral Link`
@@ -144,7 +128,7 @@ write_xlsx <- function(t, d, fn){
 
 #-- create individual GLH xlsx
 filenames <- c()
-tstmp <- format(Sys.time(), '%Y-%m-%d_%H%m')
+tstmp <- format(Sys.time(), '%Y-%m-%d_%H%M')
 for(glh in unique(d$organisation)){
 	fn <- paste0("gmc-dq-results-", gsub(".", "-", make.names(glh), fixed = T), tstmp, '.xlsx')
 	d_glh <- d[d$organisation %in% glh, !colnames(d) %in% c('organisation')]
@@ -153,13 +137,21 @@ for(glh in unique(d$organisation)){
 	filenames <- c(filenames, fn)
 }
 
-#-- zip up the resulting files
-#--         zipr("waterfall-per-cohort.zip", list.files(".", pattern = "^cohort.*docx"), flags = "-FS")
-#--         file.remove(list.files(".", pattern = "^cohort.*docx"))
+#-- zip together everything
+zip_fn = paste0("dq-report-", tstmp, ".zip")
+zip(zip_fn, filenames, flags = '-j')
 
-#-- upload files to slack channel
-for(i in filenames){
-	slackr_upload(i, title = basename(i), initial_comment = basename(i), channels = "@simon-t", api_token = p[['slack_api_token']])
+#-- write the last run logs to Slack
+for(i in names(dq_output)){
+	txt = paste(dq_output[[i]], collapse = '\n')
+	slackr_msg(paste('*DQ Report Results - ', i, ':*\n```', txt, '```'), channel = slack_channel)
 }
+
+#-- upload zip file to slack channel
+slackr_upload(zip_fn,
+				title = 'DQ Report',
+				initial_comment = 'ZIP of DQ Report',
+				channels = slack_channel,
+				api_token = p[['slack_api_token']])
 
 dbdisconnectall()
