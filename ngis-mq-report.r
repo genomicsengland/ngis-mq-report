@@ -52,8 +52,8 @@ select organisation_id as organisation
 	,upper(person_first_name) as "Patient\'s first name"
 	,upper(person_family_name) as "Patient\'s surname"
 	,upper(patient_administrative_gender) as "Patient\'s gender"
-	,glh_test_id as "Failed rule ID"
-	,glh_description as "Failed rule description"
+	,glh_test_id as "Rule ID"
+	,glh_description as "Rule description"
 	,resolution_guidance as "Resolution guidance"
 	,includes_csv_data as "Includes data from csv?"
 	,delays_test_order as "Will block test order?"
@@ -78,8 +78,8 @@ rules <- dbGetQuery(res_db_con, '
 
 #-- for those participants that are failing the 'referral is cancelled' rule, want to report that result but not any other rule results
 cancelled_rule <- "ngis_rule_000"
-cancelled_referral_ids <- d$`Referral ID`[d$`Test ID` == cancelled_rule] 
-d <- d[(!d$`Referral ID` %in% cancelled_referral_ids) | (d$`Referral ID` %in% cancelled_referral_ids & d$`Test ID` == cancelled_rule), ]
+cancelled_referral_ids <- d$`Referral ID`[d$`Rule ID` == cancelled_rule] 
+d <- d[(!d$`Referral ID` %in% cancelled_referral_ids) | (d$`Referral ID` %in% cancelled_referral_ids & d$`Rule ID` == cancelled_rule), ]
 
 #-- replace NAs in organisation with 'unknown'
 #-- needed early on as not getting a lot of organisations coming through
@@ -87,7 +87,7 @@ d$organisation[is.na(d$organisation)] <- 'unknown'
 
 #-- make table of rule failures per organisation and rule
 d_t <- setNames(as.data.frame(table(d$`Rule ID`, d$organisation)),
-				 c("Rule ID", "organisation", "Number of Failures")
+				 c("Rule ID", "organisation", "Number of failures")
 				 )
 d_t <- merge(d_t, rules, by = "Rule ID", all.x = T)
 
@@ -118,10 +118,10 @@ write_xlsx <- function(t, d, fn){
 	addStyle(wb, 1, style = cs1, rows = 2:(nrow(t) + 1), cols = 1:ncol(t), gridExpand = TRUE)
 	addStyle(wb, 3, style = cs1, rows = 2:(nrow(rules) + 1), cols = 1:ncol(rules), gridExpand = TRUE)
 	# make the hyperlinks and overwrite the relevant data
-	links  <-  d$`Referral Link`
-	names(links) <- rep("Referral Link", length(links))
+	links  <-  d$`Test order link`
+	names(links) <- rep("Test order link", length(links))
 	class(links) <- "hyperlink"
-	writeData(wb, 2, x = links, startCol = which(colnames(d) == "Referral Link"), startRow = 2)
+	writeData(wb, 2, x = links, startCol = which(colnames(d) == "Test order link"), startRow = 2)
 	# write out the workbook
 	saveWorkbook(wb, fn, overwrite = TRUE)
 }
@@ -132,7 +132,7 @@ tstmp <- format(Sys.time(), '%Y-%m-%d_%H%M')
 for(glh in unique(d$organisation)){
 	fn <- paste0("gmc-dq-results-", gsub(".", "-", make.names(glh), fixed = T), tstmp, '.xlsx')
 	d_glh <- d[d$organisation %in% glh, !colnames(d) %in% c('organisation')]
-	t_glh <- d_t[d_t$organisation %in% glh, !colnames(d_t) %in% c('organisation')]
+	t_glh <- d_t[d_t$organisation %in% glh & d_t$`Number of failures` > 0, !colnames(d_t) %in% c('organisation')]
 	write_xlsx(t_glh, d_glh, fn)
 	filenames <- c(filenames, fn)
 }
