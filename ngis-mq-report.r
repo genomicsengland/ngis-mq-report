@@ -12,7 +12,7 @@ library(openxlsx)
 library(slackr)
 
 #-- get profile data
-p <- getprofile(c("indx_con", "cdr_auto", "slack_api_token"))
+p <- getprofile(c("indx_con", "slack_api_token"))
 
 #-- set up Slack connection
 slack_channel = "testathon-is-on"
