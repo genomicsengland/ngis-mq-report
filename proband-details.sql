@@ -18,7 +18,7 @@ organisation_ids as (
 	where it.identifier_type = 'organisation'	
 )
 select o.organisation_id as organisation
-	,referral_id as "Referral ID"
+	,r.referral_id as "Referral ID"
 	,p.nhs_chi_number as "NHS/CHI Number"
 	,p.patient_date_of_birth as "Date of Birth"
 	,upper(p.person_first_name) as "Patient First Name"
