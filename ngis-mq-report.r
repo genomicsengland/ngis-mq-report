@@ -129,8 +129,10 @@ write_xlsx <- function(t, d, fn){
 #-- create individual GLH xlsx
 filenames <- c()
 tstmp <- format(Sys.time(), '%Y-%m-%d_%H%M')
+fldr <- paste0('/cdt_share/cdt/dq-report/tstmp')
+dir.create(fldr)
 for(glh in unique(d$organisation)){
-	fn <- paste0("gmc-dq-results-", gsub(".", "-", make.names(glh), fixed = T), tstmp, '.xlsx')
+	fn <- paste0(fldr, '/glh-dq-report-', gsub(".", "-", make.names(glh), fixed = T), tstmp, '.xlsx')
 	d_glh <- d[d$organisation %in% glh, !colnames(d) %in% c('organisation')]
 	t_glh <- d_t[d_t$organisation %in% glh & d_t$`Number of failures` > 0, !colnames(d_t) %in% c('organisation')]
 	write_xlsx(t_glh, d_glh, fn)
@@ -138,7 +140,7 @@ for(glh in unique(d$organisation)){
 }
 
 #-- zip together everything
-zip_fn = paste0("dq-report-", tstmp, ".zip")
+zip_fn = paste0(fldr, "/dq-report-", tstmp, ".zip")
 zip(zip_fn, filenames, flags = '-j')
 
 #-- write the last run logs to Slack
