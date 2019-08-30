@@ -9,10 +9,27 @@ options(stringsAsFactors = FALSE,
 library(wrangleR)
 library(RPostgreSQL)
 library(openxlsx)
+library(slackr)
+
+#-- get profile data
+p <- getprofile(c("indx_con", "cdr_auto", "slack_api_token"))
+
+#-- Run the DQ rules
+dq_commands <- list(
+	'tests' = 'python ngis_mq.py RunDQTests',
+	'metrics' = 'python ngis_mq.py RunDQMetrics',
+	'refresh_ID' = 'python ngis_mq.py RefreshIDTable',
+	'usertab' = 'python ngis_mq.py writeUserTab'
+)
+dq_output <- lapply(dq_commands, function(x) system(paste('cd ../ngis-mq && source venv/bin/activate &&', x)))
+
+#-- set up Slack connection
+slackr_setup(channel = "simon-t", 
+             incoming_webhook_url="https://hooks.slack.com/services/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",
+             api_token = p[['slack_api_token']])
 
 #-- connect to results db
 drv <- dbDriver("PostgreSQL")
-p <- getprofile(c("indx_con", "cdr_auto"))
 res_db_con <- dbConnect(drv,
              dbname = "metrics",
              host     = p$indx_con$host,
@@ -126,15 +143,23 @@ write_xlsx <- function(t, d, fn){
 }
 
 #-- create individual GLH xlsx
+filenames <- c()
+tstmp <- format(Sys.time(), '%Y-%m-%d_%H%m')
 for(glh in unique(d$organisation)){
-	fn <- paste0("gmc-dq-results-", gsub(".", "-", make.names(glh), fixed = T), '.xlsx')
+	fn <- paste0("gmc-dq-results-", gsub(".", "-", make.names(glh), fixed = T), tstmp, '.xlsx')
 	d_glh <- d[d$organisation %in% glh, !colnames(d) %in% c('organisation')]
 	t_glh <- d_t[d_t$organisation %in% glh, !colnames(d_t) %in% c('organisation')]
 	write_xlsx(t_glh, d_glh, fn)
+	filenames <- c(filenames, fn)
 }
 
 #-- zip up the resulting files
 #--         zipr("waterfall-per-cohort.zip", list.files(".", pattern = "^cohort.*docx"), flags = "-FS")
 #--         file.remove(list.files(".", pattern = "^cohort.*docx"))
+
+#-- upload files to slack channel
+for(i in filenames){
+	slackr_upload(i, title = basename(i), initial_comment = basename(i), channels = "@simon-t", api_token = p[['slack_api_token']])
+}
 
 dbdisconnectall()
