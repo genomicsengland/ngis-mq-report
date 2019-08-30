@@ -7,7 +7,7 @@ with most_recent_job as (
 	group by gel_case_reference, job_status
 	having job_status = 'Complete'
 	)
-select j.gel_case_reference as "Referral ID"
+select j.gel_case_reference as referral_uid
     ,r.rule_id as "Test ID"
     ,w.job_completed_datetime as "Failed Rule Datetime"
 from rer.outcome_rule r
