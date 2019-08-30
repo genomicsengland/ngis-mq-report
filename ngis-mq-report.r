@@ -29,7 +29,8 @@ dq_commands <- list(
 )
 dq_output <- list()
 for(i in names(dq_commands)){
-	system(paste('cd ../ngis-mq && source venv/bin/activate &&', dq_commands[[i]]))
+	system(paste('/bin/bash -c',
+			shQuote(paste('cd ../ngis-mq && source venv/bin/activate &&', dq_commands[[i]]))))
 	dq_output[[i]] <- readLines('../ngis-mq/log/last-run.log')
 }
 
