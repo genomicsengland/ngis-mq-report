@@ -129,7 +129,7 @@ write_xlsx <- function(t, d, fn){
 #-- create individual GLH xlsx
 filenames <- c()
 tstmp <- format(Sys.time(), '%Y-%m-%d_%H%M')
-fldr <- paste0('/cdt_share/cdt/dq-report/tstmp')
+fldr <- paste0('/cdt_share/cdt/dq-report/', tstmp)
 dir.create(fldr)
 for(glh in unique(d$organisation)){
 	fn <- paste0(fldr, '/glh-dq-report-', gsub(".", "-", make.names(glh), fixed = T), tstmp, '.xlsx')
