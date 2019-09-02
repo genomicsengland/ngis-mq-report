@@ -2,3 +2,4 @@
 *.zip
 *.xlsx
 .DS_Store
+.gel_config
