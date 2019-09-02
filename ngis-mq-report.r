@@ -12,7 +12,7 @@ library(openxlsx)
 library(slackr)
 
 #-- get profile data
-p <- getprofile(c("indx_con", "slack_api_token"))
+p <- getprofile(c("indx_con", "slack_api_token"), file = '.gel_config')
 
 #-- set up Slack connection
 slack_channel = "testathon-is-on"
@@ -29,6 +29,7 @@ dq_commands <- list(
 )
 dq_output <- list()
 for(i in names(dq_commands)){
+	#-- run the different dq commands in system, needs to be specified that bash terminal
 	system(paste('/bin/bash -c',
 			shQuote(paste('cd ../ngis-mq && source venv/bin/activate &&', dq_commands[[i]]))))
 	dq_output[[i]] <- readLines('../ngis-mq/log/last-run.log')
