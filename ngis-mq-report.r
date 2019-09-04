@@ -10,7 +10,7 @@ library(openxlsx)
 library(slackr)
 
 #-- get profile data
-p <- getprofile(c("indx_con", "slack_api_token"), file = '.gel_config')
+p <- getprofile(c("indx_con", "ngis_slave_db", "slack_api_token"), file = '.gel_config')
 
 #-- set up Slack connection
 slack_channel = "testathon-is-on"
@@ -33,7 +33,7 @@ for(i in names(dq_commands)){
 	dq_output[[i]] <- readLines('../ngis-mq/log/last-run.log')
 }
 
-#-- connect to results db
+#-- connect to results db and config db
 drv <- dbDriver("PostgreSQL")
 res_db_con <- dbConnect(drv,
              dbname = "metrics",
@@ -41,6 +41,12 @@ res_db_con <- dbConnect(drv,
              port     = p$indx_con$port,
              user     = p$indx_con$user,
              password = p$indx_con$password)
+cfg_db_con <- dbConnect(drv,
+             dbname = "ngis_config_beta",
+             host     = p$ngis_slave_db$host,
+             port     = p$ngis_slave_db$port,
+             user     = p$ngis_slave_db$user,
+             password = p$ngis_slave_db$password)
 
 #-- get latest data from results db (the DQ report view)
 d <- dbGetQuery(res_db_con, '
@@ -66,15 +72,26 @@ where test_result = false and glh_report = \'Y\'
 
 #-- get rule descriptions for both NGIS and DDF rule failures
 rules <- dbGetQuery(res_db_con, '
-	select glh_test_id as "Rule ID"
-		,glh_description as "Rule description"
-		,resolution_guidance as "Resolution guidance"
-		,includes_csv_data as "Includes data from csv"
-		,delays_test_order as "Delays the test order"
-	from ngis_mq_results.test_type
-	where glh_report in (\'Y\')
-	order by glh_test_id
-	;')
+select glh_test_id as "Rule ID"
+	,glh_description as "Rule description"
+	,resolution_guidance as "Resolution guidance"
+	,includes_csv_data as "Includes data from csv"
+	,delays_test_order as "Delays the test order"
+from ngis_mq_results.test_type
+where glh_report in (\'Y\')
+order by glh_test_id
+;')
+
+#-- get table of GLH:organisation from config
+glhs <- dbGetQuery(cfg_db_con, '
+select og.organisational_grouping_name as glh
+	,o.organisation_name as organisation
+from public.organisational_grouping og 
+join public.organisation_organisational_grouping ogg 
+	on og.organisational_grouping_uid = ogg.organisational_grouping_uid
+join public.organisation o 
+	on o.organisation_uid = ogg.organisation_uid
+;')
 
 #-- for those participants that are failing the 'referral is cancelled' rule, want to report that result but not any other rule results
 cancelled_rule <- "ngis_rule_000"
@@ -83,7 +100,7 @@ d <- d[(!d$`Referral ID` %in% cancelled_referral_ids) | (d$`Referral ID` %in% ca
 
 #-- replace NAs in organisation with 'unknown'
 #-- needed early on as not getting a lot of organisations coming through
-d$organisation[is.na(d$organisation)] <- 'unknown'
+#-- d$organisation[is.na(d$organisation)] <- 'unknown'
 
 #-- make table of rule failures per organisation and rule
 d_t <- setNames(as.data.frame(table(d$`Rule ID`, d$organisation)),
@@ -110,6 +127,10 @@ write_xlsx <- function(t, d, fn){
 	freezePane(wb, 1, firstRow = TRUE)
 	freezePane(wb, 2, firstRow = TRUE)
 	freezePane(wb, 3, firstRow = TRUE)
+	# change orientation to landscape
+	pageSetup(wb, 1, orientation = 'landscape', scale = 100)
+	pageSetup(wb, 2, orientation = 'landscape', scale = 75)
+	pageSetup(wb, 3, orientation = 'landscape', scale = 100)
 	# add in the data and set the headerstyles
 	writeData(wb, 'Rule Summary', t, headerStyle = hs1)
 	writeData(wb, 'Rule Results', d, headerStyle = hs1)
@@ -118,30 +139,40 @@ write_xlsx <- function(t, d, fn){
 	addStyle(wb, 1, style = cs1, rows = 2:(nrow(t) + 1), cols = 1:ncol(t), gridExpand = TRUE)
 	addStyle(wb, 3, style = cs1, rows = 2:(nrow(rules) + 1), cols = 1:ncol(rules), gridExpand = TRUE)
 	# make the hyperlinks and overwrite the relevant data
-	links  <-  d$`Test order link`
-	names(links) <- rep("Test order link", length(links))
-	class(links) <- "hyperlink"
-	writeData(wb, 2, x = links, startCol = which(colnames(d) == "Test order link"), startRow = 2)
+	#removing this for the moment as excel can't cope with SSO of TOMS
+	#links  <-  d$`Test order link`
+	#names(links) <- rep("Test order link", length(links))
+	#class(links) <- "hyperlink"
+	#writeData(wb, 2, x = links, startCol = which(colnames(d) == "Test order link"), startRow = 2)
 	# write out the workbook
 	saveWorkbook(wb, fn, overwrite = TRUE)
 }
 
-#-- create individual GLH xlsx
+#-- make a timestamp folder in cdt_share
 filenames <- c()
 tstmp <- format(Sys.time(), '%Y-%m-%d_%H%M')
 fldr <- paste0('/cdt_share/cdt/dq-report/', tstmp)
 dir.create(fldr)
-for(glh in unique(d$organisation)){
-	fn <- paste0(fldr, '/glh-dq-report-', gsub(".", "-", make.names(glh), fixed = T), tstmp, '.xlsx')
-	d_glh <- d[d$organisation %in% glh, !colnames(d) %in% c('organisation')]
-	t_glh <- d_t[d_t$organisation %in% glh & d_t$`Number of failures` > 0, !colnames(d_t) %in% c('organisation')]
-	write_xlsx(t_glh, d_glh, fn)
-	filenames <- c(filenames, fn)
+#-- for each GLH
+for(glh in unique(glhs$glh)){
+	#-- create folder to accomodate all organisation's reports
+	glh_folder <-  paste0(fldr, '/', gsub(".", "-", make.names(glh), fixed = T)) 
+	dir.create(glh_folder)
+	#-- create individual dq-reports for each of the GLH's organisations
+	for(org in glhs$organisation[glhs$glh == glh]){
+		fn <- paste0(glh_folder, '/dq-report-', gsub(".", "-", make.names(org), fixed = T), '-', tstmp, '.xlsx')
+		d_org <- d[d$organisation %in% org, !colnames(d) %in% c('organisation')]
+		t_org <- d_t[d_t$organisation %in% org & d_t$`Number of failures` > 0, !colnames(d_t) %in% c('organisation')]
+		if(nrow(d_org) > 0){
+			write_xlsx(t_org, d_org, fn)
+			filenames <- c(filenames, fn)
+		}
+	}
 }
 
 #-- zip together everything
-zip_fn = paste0(fldr, "/dq-report-", tstmp, ".zip")
-zip(zip_fn, filenames, flags = '-j')
+zip_fn = paste0("dq-report-", tstmp, ".zip")
+system(paste("cd", fldr, "&& zip -R", zip_fn, "'*.xlsx'"))
 
 #-- write the last run logs to Slack
 for(i in names(dq_output)){
