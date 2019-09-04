@@ -181,7 +181,7 @@ for(i in names(dq_output)){
 }
 
 #-- upload zip file to slack channel
-slackr_upload(zip_fn,
+slackr_upload(paste0(fldr, '/', zip_fn),
 				title = 'DQ Report',
 				initial_comment = 'ZIP of DQ Report',
 				channels = slack_channel,
