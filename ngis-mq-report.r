@@ -98,6 +98,11 @@ cancelled_rule <- "ngis_rule_000"
 cancelled_referral_ids <- d$`Referral ID`[d$`Rule ID` == cancelled_rule] 
 d <- d[(!d$`Referral ID` %in% cancelled_referral_ids) | (d$`Referral ID` %in% cancelled_referral_ids & d$`Rule ID` == cancelled_rule), ]
 
+#-- during testing only want to report on those rule failures associated with data entered by GLHs (not GEL)
+#-- best way is to limit data to NHS numbers set aside for beta and UAT testing
+glh_nhs_numbers <- readLines('valid_test_nhs_numbers.txt')
+d <- d[d$`Patient's NHS Number` %in% glh_nhs_numbers,]
+
 #-- replace NAs in organisation with 'unknown'
 #-- needed early on as not getting a lot of organisations coming through
 #-- d$organisation[is.na(d$organisation)] <- 'unknown'
