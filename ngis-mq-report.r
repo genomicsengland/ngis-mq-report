@@ -125,7 +125,7 @@ write_xlsx <- function(t, d, fn){
 	addWorksheet(wb, sheetName='Rule Results')
 	addWorksheet(wb, sheetName='All Rules')
 	# set the col widths (either manual or auto)
-	setColWidths(wb, 1, 1:ncol(t), c(15, 15, 70, 70, 20, 20))
+	setColWidths(wb, 1, 1:ncol(t), c(15, 15, 15, 70, 70, 20, 20))
 	setColWidths(wb, 2, 1:ncol(d), 'auto')
 	setColWidths(wb, 3, 1:ncol(rules), c(15, 70, 70, 20))
 	# freeze the top row of the spreadsheet
@@ -156,23 +156,19 @@ write_xlsx <- function(t, d, fn){
 #-- make a timestamp folder in cdt_share
 filenames <- c()
 tstmp <- format(Sys.time(), '%Y-%m-%d_%H%M')
+#fldr <- paste0('/Users/simonthompson/scratch/dq-report/', tstmp)
 fldr <- paste0('/cdt_share/cdt/dq-report/', tstmp)
 dir.create(fldr)
 #-- for each GLH
 for(glh in unique(glhs$glh)){
-	#-- create folder to accomodate all organisation's reports
-	glh_folder <-  paste0(fldr, '/', gsub(".", "-", make.names(glh), fixed = T)) 
-	dir.create(glh_folder)
-	#-- create individual dq-reports for each of the GLH's organisations
-	for(org in glhs$organisation[glhs$glh == glh]){
-		fn <- paste0(glh_folder, '/dq-report-', gsub(".", "-", make.names(org), fixed = T), '-', tstmp, '.xlsx')
-		d_org <- d[d$organisation %in% org, !colnames(d) %in% c('organisation')]
-		t_org <- d_t[d_t$organisation %in% org & d_t$`Number of failures` > 0, !colnames(d_t) %in% c('organisation')]
-		if(nrow(d_org) > 0){
-			write_xlsx(t_org, d_org, fn)
-			filenames <- c(filenames, fn)
-		}
-	}
+	#-- get all organisations
+	orgs <- unique(glhs$organisation[glhs$glh == glh])
+	#-- create the dq report
+	fn <- paste0(fldr, '/dq-report-', gsub(".", "-", make.names(glh), fixed = T), '-', tstmp, '.xlsx')
+	d_org <- d[d$organisation %in% orgs,]
+	t_org <- d_t[d_t$organisation %in% orgs & d_t$`Number of failures` > 0,]
+	write_xlsx(t_org, d_org, fn)
+	filenames <- c(filenames, fn)
 }
 
 #-- zip together everything
