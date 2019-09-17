@@ -123,7 +123,7 @@ write_xlsx <- function(t, d, fn){
 	# add the worksheets
 	addWorksheet(wb, sheetName='Rule Summary')
 	addWorksheet(wb, sheetName='Rule Results')
-	addWorksheet(wb, sheetName='All Rules')
+	addWorksheet(wb, sheetName='Rule Descriptions')
 	# set the col widths (either manual or auto)
 	setColWidths(wb, 1, 1:ncol(t), c(15, 15, 15, 70, 70, 20, 20))
 	setColWidths(wb, 2, 1:ncol(d), 'auto')
@@ -139,7 +139,7 @@ write_xlsx <- function(t, d, fn){
 	# add in the data and set the headerstyles
 	writeData(wb, 'Rule Summary', t, headerStyle = hs1)
 	writeData(wb, 'Rule Results', d, headerStyle = hs1)
-	writeData(wb, 'All Rules', rules, headerStyle = hs1)
+	writeData(wb, 'Rule Descriptions', rules, headerStyle = hs1)
 	# add the cell styles to just 1st and 3rd sheets (where we want wrapping)
 	addStyle(wb, 1, style = cs1, rows = 2:(nrow(t) + 1), cols = 1:ncol(t), gridExpand = TRUE)
 	addStyle(wb, 3, style = cs1, rows = 2:(nrow(rules) + 1), cols = 1:ncol(rules), gridExpand = TRUE)
