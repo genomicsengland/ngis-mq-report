@@ -13,7 +13,7 @@ library(slackr)
 p <- getprofile(c("indx_con", "ngis_slave_db", "slack_api_token"), file = '.gel_config')
 
 #-- set up Slack connection
-slack_channel = "simon-test"
+slack_channel = "testathon-is-on"
 slackr_setup(channel = slack_channel, 
              incoming_webhook_url="https://hooks.slack.com/services/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",
              api_token = p[['slack_api_token']])
