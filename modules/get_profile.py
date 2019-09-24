@@ -1,7 +1,7 @@
 import json
 import os
 
-def getProfile(f = os.path.expanduser("~/.gel_config"), items = None):
+def getProfile(f = os.path.expanduser(".gel_config"), items = None):
     """Get GEL profile details from file. See https://cnfl.extge.co.uk/pages/viewpage.action?pageId=113196964 for details
     f - location of config file, default is ~/.gel_config
     items - str or list of first-level items to return"""
