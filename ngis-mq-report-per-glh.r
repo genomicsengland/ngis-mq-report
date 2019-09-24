@@ -13,6 +13,7 @@ library(slackr)
 p <- getprofile(c("indx_con", "ngis_slave_db", "slack_api_token"), file = '.gel_config')
 
 #-- set up Slack connection
+#-- slack_channel = "simon-test"
 slack_channel = "testathon-is-on"
 slackr_setup(channel = slack_channel, 
              incoming_webhook_url="https://hooks.slack.com/services/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",
@@ -153,10 +154,12 @@ write_xlsx <- function(t, d, fn){
 	saveWorkbook(wb, fn, overwrite = TRUE)
 }
 
+#-- make dataframe to accommodate latest report details
+latest_reports <- data.frame('glh' = character(), 'path' = character())
+
 #-- make a timestamp folder in cdt_share
-filenames <- c()
 tstmp <- format(Sys.time(), '%Y-%m-%d_%H%M')
-#fldr <- paste0('/Users/simonthompson/scratch/dq-report/', tstmp)
+#-- fldr <- paste0('/Users/simonthompson/scratch/dq-report/', tstmp)
 fldr <- paste0('/cdt_share/cdt/dq-report/', tstmp)
 dir.create(fldr)
 #-- for each GLH
@@ -168,12 +171,15 @@ for(glh in unique(glhs$glh)){
 	d_org <- d[d$organisation %in% orgs,]
 	t_org <- d_t[d_t$organisation %in% orgs & d_t$`Number of failures` > 0,]
 	write_xlsx(t_org, d_org, fn)
-	filenames <- c(filenames, fn)
+	latest_reports[nrow(latest_reports) + 1, ] <- c(glh, fn)
 }
 
 #-- zip together everything
 zip_fn = paste0("dq-report-", tstmp, ".zip")
 system(paste("cd", fldr, "&& zip -R", zip_fn, "'*.xlsx'"))
+
+#-- upload latest_reports to index db
+dbWriteTable(res_db_con, c('ngis_mq_results', 'latest_reports'), latest_reports, overwrite = TRUE, row.names = FALSE)
 
 #-- write the last run logs to Slack
 for(i in names(dq_output)){

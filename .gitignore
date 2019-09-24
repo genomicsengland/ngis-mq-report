@@ -3,3 +3,5 @@
 *.xlsx
 .DS_Store
 .gel_config
+*.pyc
+*.csv
