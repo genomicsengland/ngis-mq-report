@@ -191,7 +191,7 @@ for(i in names(dq_output)){
 }
 
 #-- write out email output
-slackr_msg(paste('Sending Emails:\n```', paste(email_output, collapse = '\n'), '```', channel = slack_channel))
+slackr_msg(paste('Sending Emails:\n```', paste(email_output, collapse = '\n'), '```'), channel = slack_channel)
 
 #-- upload zip file to slack channel
 slackr_upload(paste0(fldr, '/', zip_fn),
