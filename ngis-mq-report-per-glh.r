@@ -182,7 +182,7 @@ system(paste("cd", fldr, "&& zip -R", zip_fn, "'*.xlsx'"))
 dbWriteTable(res_db_con, c('ngis_mq_results', 'latest_reports'), latest_reports, overwrite = TRUE, row.names = FALSE)
 
 #-- send out the reports
-email_output <- system('source venv/bin/activate && python distribute_reports.py', intern = T)
+email_output <- system(paste('/bin/bash -c', shQuote('source venv/bin/activate && python distribute_reports.py')), intern = T)
 
 #-- write the last run logs to Slack
 for(i in names(dq_output)){
