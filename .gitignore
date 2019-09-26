@@ -5,3 +5,4 @@
 .gel_config
 *.pyc
 *.csv
+venv/*
