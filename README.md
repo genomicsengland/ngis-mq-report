@@ -25,3 +25,11 @@ This script provides the functionality to send emails to certain recipients usin
 * `modules.get_profile.py` - gets relevant configuration details from the `.gel_config` file;
 * `modules.send_email.py` - provides functions for connecting to the Microsoft Exchange Server, generating emails from templates and adding attachments;
 * `message_template.html` - the message template that accompanies the email. This is eventually turned into a `Template` object so can hold placeholders for where names etc. can be substituted per email.
+
+# Common Tasks
+
+* **Don't send to a certain person** - if permanent, remove them from `ngis_mq_results.recipient`. If temporary, remove the glh from their entry and reinstate when ready to send again.
+* **Stop DQ report all together** - change Jenkins job so it's not a scheduled job.
+* **Test an individual rule** - clone everything to local and create a `metrics.ngis_mq_results` schema on your local postgres. Change `local_config.py` so that the `res_db` is pointing to that local database. Then run `RecreateResultsDB` to create all the tables needed. You can then run just a single test and check it's output by looking at `ngis_mq_results.vw_dq_report_table`.
+* **Change rule config** - to change description, name, whether rule goes into report etc., **don't change `ngis_mq_results.test_type`**, edit the docstring of the rule function accordingly (how it ends up in `ngis_mq_results.test_type` is how it is found in the dosctring so just copy from another rule if need be), push/pull changes etc. When the DQ report next runs the details of `ngis_mq_results.test_type` will be updated accordingly.
+* **Generate the reports but don't send out the output** - comment out lines ~185 & ~194 (runs the system command to trigger `distribute_reports.py`, and sends the output of that to Slack) in `ngis_mq_report-per-glh.r` then start the jenkins job.
